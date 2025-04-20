@@ -1763,6 +1763,35 @@ namespace Mem {
 		return totalMem;
 	}
 
+		const char * decode_escaped_spaces(const char * input) {
+		static std::string output;
+		output.clear();
+	
+		for (size_t i = 0; input[i] != '\0'; ++i) {
+			if (input[i] == '\\' && strncmp(&input[i], "\\040", 4) == 0) {
+				output += " ";
+				i += 3; // skip over "040"
+			} else {
+				output += input[i];
+			}
+		}
+	
+		return output.c_str();
+	}
+
+	std::string decode_escaped_spaces_str(const std::string& input) {
+		std::string output;
+		for (size_t i = 0; i < input.size(); ++i) {
+			if (input[i] == '\\' && input.substr(i, 4) == "\\040") {
+				output += " ";
+				i += 3; // skip over "040"
+			} else {
+				output += input[i];
+			}
+		}
+		return output;
+	}
+
 	auto collect(bool no_update) -> mem_info& {
 		if (Runner::stopping or (no_update and not current_mem.percent.at("used").empty())) return current_mem;
 		auto show_swap = Config::getB("show_swap");
@@ -2027,6 +2056,7 @@ namespace Mem {
 							continue;
 						}
 						auto &updated_stats = promise_res.first;
+						disk.name = decode_escaped_spaces_str(disk.name);
 						disk.total = updated_stats.total;
 						disk.free = updated_stats.free;
 						disk.used = updated_stats.used;
@@ -2036,7 +2066,7 @@ namespace Mem {
 					disks_stats_promises[mountpoint] = async(std::launch::async, [mountpoint, &free_priv]() -> pair<disk_info, int> {
 						struct statvfs vfs;
 						disk_info disk;
-						if (statvfs(mountpoint.c_str(), &vfs) < 0) {
+						if (statvfs(decode_escaped_spaces(mountpoint.c_str()), &vfs) < 0) {
 							return pair{disk, errno};
 						}
 						disk.total = vfs.f_blocks * vfs.f_frsize;
